@@ -10,7 +10,7 @@ import (
 func ConnectDB(ctx context.Context) (*pgxpool.Pool, error) {
 	connString := os.Getenv("POSTGRES_URL")
 
-	pool, err := pgxpool.New(ctx, connString)
+	conn, err := pgxpool.New(ctx, connString)
 
-	return pool, err
+	return conn, err
 }
