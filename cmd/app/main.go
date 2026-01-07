@@ -1,7 +1,22 @@
 package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"team-flow/pkg/database/postgres"
+
+	"github.com/joho/godotenv"
+)
 
 func main() {
-	fmt.Println("test_one")
+	godotenv.Load("env.env")
+
+	ctx := context.Background()
+
+	_, err := postgres.ConnectDB(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Successfully connect to PostgresDB")
 }
