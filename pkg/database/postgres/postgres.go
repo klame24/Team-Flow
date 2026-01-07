@@ -4,13 +4,13 @@ import (
 	"context"
 	"os"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func ConnectDB(ctx context.Context) (*pgx.Conn, error) {
+func ConnectDB(ctx context.Context) (*pgxpool.Pool, error) {
 	connString := os.Getenv("POSTGRES_URL")
 
-	conn, err := pgx.Connect(ctx, connString)
+	pool, err := pgxpool.New(ctx, connString)
 
-	return conn, err
+	return pool, err
 }
