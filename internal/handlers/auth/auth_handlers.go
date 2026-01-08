@@ -10,6 +10,7 @@ import (
 
 type AuthHandlers interface {
 	Register(c *gin.Context)
+	Login(c *gin.Context)
 }
 
 type authHandlers struct {
@@ -47,4 +48,31 @@ func (authHandlers *authHandlers) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"id": userID})
+}
+
+func (authHandlers *authHandlers) Login(c *gin.Context) {
+	req := dto.LoginRequest{}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	accessToken, refreshToken, err := authHandlers.authService.Login(c, req.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Internal server error",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"token_type":    "Bearer",
+	})
 }

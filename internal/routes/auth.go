@@ -13,5 +13,6 @@ func RegisterAuthRoutes(r *gin.Engine, authService services.AuthService) {
 	authGroup := r.Group("/auth")
 	{
 		authGroup.POST("/register", authHandlers.Register)
+		authGroup.POST("/login", authHandlers.Login)
 	}
 }

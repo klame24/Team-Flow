@@ -9,10 +9,11 @@ import (
 )
 
 type UserRepository interface {
-	Create(ctx context.Context, user *models.User) (int, error)
+	Create(ctx context.Context, user *models.User) (int32, error)
 	// UPDATE
 	// DELETE
 	// GET_BY_ID
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
 }
 
 type userRepository struct {
@@ -25,8 +26,8 @@ func NewUserRepository(db *pgxpool.Pool) UserRepository {
 	}
 }
 
-func (userRepo *userRepository) Create(ctx context.Context, user *models.User) (int, error) {
-	var userID int
+func (userRepo *userRepository) Create(ctx context.Context, user *models.User) (int32, error) {
+	var userID int32
 
 	user.CreatedAt = time.Now()
 
@@ -48,4 +49,27 @@ func (userRepo *userRepository) Create(ctx context.Context, user *models.User) (
 	).Scan(&userID)
 
 	return userID, err
+}
+
+func (userRepo *userRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+	user := &models.User{}
+
+	sqlQuery := `
+		SELECT 
+			id, name, surname, nickname, email, password_hash, created_at
+		FROM users
+		WHERE users.email=$1;
+	`
+
+	err := userRepo.db.QueryRow(ctx, sqlQuery, email).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Surname,
+		&user.Nickname,
+		&user.Email,
+		&user.PasswordHash,
+		&user.CreatedAt,
+	)
+
+	return user, err
 }

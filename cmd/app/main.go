@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"team-flow/internal/auth/jwt"
 	"team-flow/internal/repositories"
 	"team-flow/internal/routes"
 	"team-flow/internal/services"
 	"team-flow/pkg/database/postgres"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -24,11 +27,18 @@ func main() {
 
 	fmt.Println("Successfully connect to PostgresDB")
 
+	jwtManager := jwt.NewManager(
+		os.Getenv("SECRET_KEY"),
+		15*time.Minute,
+		30*24*time.Hour,
+	)
+
 	// инициализация репозиториев
 	userRepo := repositories.NewUserRepository(pool)
+	tokenRepo := repositories.NewTokenRepository(pool)
 
 	// инициализая сервисов
-	authService := services.NewAuthService(userRepo)
+	authService := services.NewAuthService(userRepo, tokenRepo, jwtManager)
 
 	r := gin.Default()
 
