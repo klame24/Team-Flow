@@ -137,6 +137,8 @@ func (authHandlers *authHandlers) Login(c *gin.Context) {
 			"error": errorCode,
 			"message": message,
 		})
+
+		return
 		
 	}
 

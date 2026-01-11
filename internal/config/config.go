@@ -36,8 +36,11 @@ type JWTConfig struct {
 	RefreshTokenTTL time.Duration
 }
 
+func init() {
+	_ = godotenv.Load("env.env")
+}
+
 func Load() (*Config, error) {
-	godotenv.Load()
 
 	return &Config{
 		Server: ServerConfig{
@@ -64,7 +67,6 @@ func Load() (*Config, error) {
 }
 
 func buildDatabaseURL() string {
-	godotenv.Load("env.env")
 
 	host := getEnv("DB_HOST", "localhost")
 	port := getEnv("DB_PORT", "5432")
@@ -77,7 +79,6 @@ func buildDatabaseURL() string {
 }
 
 func getEnv(key, defaultValue string) string {
-	godotenv.Load("env.env")
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
@@ -85,7 +86,6 @@ func getEnv(key, defaultValue string) string {
 }
 
 func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
-	godotenv.Load("env.env")
 	if value, exists := os.LookupEnv(key); exists {
 		if duration, err := time.ParseDuration(value); err == nil {
 			return duration
