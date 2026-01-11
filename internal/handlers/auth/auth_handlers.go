@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"team-flow/core/errors"
+	"team-flow/core/logger"
+	"team-flow/core/validator"
 	"team-flow/internal/handlers/auth/dto"
 	"team-flow/internal/services"
 
@@ -25,11 +28,21 @@ func NewAuthHandlers(authService services.AuthService) AuthHandlers {
 
 func (authHandlers *authHandlers) Register(c *gin.Context) {
 	req := dto.RegisterRequest{}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request body",
 			"details": err.Error(),
 		})
+		return
+	}
+
+	if valErr := validator.ValidateStruct(&req); valErr != nil { // почему передаем структуру если функция принимает интерфейс?
+		c.JSON(errors.ToHTTPCode(valErr.Code), gin.H{
+			"error":   valErr.Code,
+			"message": valErr.Message,
+		})
+
 		return
 	}
 
@@ -43,11 +56,37 @@ func (authHandlers *authHandlers) Register(c *gin.Context) {
 	)
 	if err != nil {
 		// нужно обрабатывать ошибки грамотно, проверять наличие почты такой же и ника
+		logger.LogError(err)
 
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal error"})
+		var statusCode int
+		var errorCode, message string
+
+		if err.Error() == "duplicate email" {
+			statusCode = http.StatusConflict
+			errorCode = errors.ErrCodeDuplicate
+			message = "Email already exists"
+		} else if err.Error() == "duplicate nickname" {
+			statusCode = http.StatusConflict
+			errorCode = errors.ErrCodeDuplicate
+			message = "Nickname already exists"
+		} else {
+			statusCode = http.StatusInternalServerError
+			errorCode = errors.ErrCodeInternal
+			message = "Internal server error"
+		}
+
+		c.JSON(statusCode, gin.H{
+			"error":   errorCode,
+			"message": message,
+		})
+
+		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": userID})
+	c.JSON(http.StatusCreated, gin.H{
+		"id": userID,
+		"message": "User registered successfully",
+	})
 }
 
 func (authHandlers *authHandlers) Login(c *gin.Context) {
@@ -61,13 +100,44 @@ func (authHandlers *authHandlers) Login(c *gin.Context) {
 		return
 	}
 
+	if valErr := validator.ValidateStruct(&req); valErr != nil {
+		c.JSON(errors.ToHTTPCode(valErr.Code), gin.H{
+			"error":   valErr.Code,
+			"message": valErr.Message,
+		})
+
+		return
+	}
+
 	accessToken, refreshToken, err := authHandlers.authService.Login(c, req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Internal server error",
-			"details": err.Error(),
+		logger.LogError(err)
+
+		var statusCode int
+		var errorCode, message string
+
+		switch err.Error() {
+		case "user not found":
+			statusCode = http.StatusUnauthorized
+			errorCode = errors.ErrCodeUnauthorized
+			message = "Invalid data"
+		
+		case "wrong password":
+			statusCode = http.StatusUnauthorized
+			errorCode = errors.ErrCodeUnauthorized
+			message = "Invalid data"
+
+		default:
+			statusCode = http.StatusInternalServerError
+			errorCode = errors.ErrCodeInternal
+			message = "Internal server error"
+		}
+
+		c.JSON(statusCode, gin.H{
+			"error": errorCode,
+			"message": message,
 		})
-		return
+		
 	}
 
 	c.JSON(http.StatusOK, gin.H{
