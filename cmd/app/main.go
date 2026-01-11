@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"team-flow/core/logger"
 	"team-flow/internal/auth/jwt"
 	"team-flow/internal/config"
@@ -26,36 +28,75 @@ func main() {
 		os.Exit(1)
 	}
 
+	logger.LogInfo("Configuration loaded successfully!")
+
 	godotenv.Load("env.env")
 
 	ctx := context.Background()
 
-	pool, err := postgres.ConnectDB(ctx)
+	postgresDB, err := postgres.Connect(ctx, cfg.Database)
 	if err != nil {
-		panic(err)
+		logger.LogError(err)
+		os.Exit(1)
 	}
 
-	fmt.Println("Successfully connect to PostgresDB")
+	logger.LogInfo("Postgres connected successfully!")
+
+	defer postgresDB.Close()
 
 	jwtManager := jwt.NewManager(
-		os.Getenv("SECRET_KEY"),
-		15*time.Minute,
-		30*24*time.Hour,
+		cfg.JWT.SecretKey,
+		cfg.JWT.AccessTokenTTL,
+		cfg.JWT.RefreshTokenTTL,
 	)
 
 	// инициализация репозиториев
-	userRepo := repositories.NewUserRepository(pool)
-	tokenRepo := repositories.NewTokenRepository(pool)
+	userRepo := repositories.NewUserRepository(postgresDB.GetPool())
+	tokenRepo := repositories.NewTokenRepository(postgresDB.GetPool())
 
 	// инициализая сервисов
 	authService := services.NewAuthService(userRepo, tokenRepo, jwtManager)
 
-	r := gin.Default()
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	r := gin.New()
+
+	r.Use(gin.Recovery())
 
 	routes.RegisterAllRoutes(r, authService)
 
-	if err := r.Run(":5050"); err != nil {
-		panic(err)
+	srv := &http.Server{
+		Addr:         ":" + cfg.Server.Port,
+		Handler:      r,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
+
+	go func() {
+		logger.LogInfo("Starting server on port " + cfg.Server.Port)
+
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.LogError(err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.LogInfo("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.LogError(err)
+	}
+
+	logger.LogInfo("Server exited gracefully")
 
 }

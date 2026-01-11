@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -25,6 +27,7 @@ type DatabaseConfig struct {
 	Password string
 	DBName   string
 	SSLMode  string
+	URL      string
 }
 
 type JWTConfig struct {
@@ -34,6 +37,8 @@ type JWTConfig struct {
 }
 
 func Load() (*Config, error) {
+	godotenv.Load()
+
 	return &Config{
 		Server: ServerConfig{
 			Port:         getEnv("SERVER_PORT", "8080"),
@@ -45,9 +50,10 @@ func Load() (*Config, error) {
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),
 			User:     getEnv("DB_USER", "postgres"),
-			Password: getEnv("DB_PASSWORD", "postgres"),
-			DBName:   getEnv("DB_NAME", "teamflow"),
+			Password: getEnv("DB_PASSWORD", "root"),
+			DBName:   getEnv("DB_NAME", "postgres"),
 			SSLMode:  getEnv("DB_SSL_MODE", "disable"),
+			URL:      buildDatabaseURL(),
 		},
 		JWT: JWTConfig{
 			SecretKey:       getEnv("JWT_SECRET", "your-secret-key"),
@@ -57,7 +63,21 @@ func Load() (*Config, error) {
 	}, nil
 }
 
+func buildDatabaseURL() string {
+	godotenv.Load("env.env")
+
+	host := getEnv("DB_HOST", "localhost")
+	port := getEnv("DB_PORT", "5432")
+	user := getEnv("DB_USER", "postgres")
+	password := getEnv("DB_PASSWORD", "root")
+	dbname := getEnv("DB_NAME", "postgres")
+	sslmode := getEnv("DB_SSL_MODE", "disable")
+
+	return "postgresql://" + user + ":" + password + "@" + host + ":" + port + "/" + dbname + "?sslmode=" + sslmode
+}
+
 func getEnv(key, defaultValue string) string {
+	godotenv.Load("env.env")
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
@@ -65,6 +85,7 @@ func getEnv(key, defaultValue string) string {
 }
 
 func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
+	godotenv.Load("env.env")
 	if value, exists := os.LookupEnv(key); exists {
 		if duration, err := time.ParseDuration(value); err == nil {
 			return duration

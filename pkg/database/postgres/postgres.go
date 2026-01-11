@@ -2,15 +2,43 @@ package postgres
 
 import (
 	"context"
-	"os"
+	"fmt"
+	"team-flow/core/logger"
+	"team-flow/internal/config"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func ConnectDB(ctx context.Context) (*pgxpool.Pool, error) {
-	connString := os.Getenv("POSTGRES_URL")
+type Database struct {
+	Pool *pgxpool.Pool
+}
 
-	conn, err := pgxpool.New(ctx, connString)
+func Connect(ctx context.Context, cfg config.DatabaseConfig) (*Database, error) {
+	start := time.Now()
 
-	return conn, err
+	pool, err := pgxpool.New(ctx, cfg.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	elapsed := time.Since(start)
+	logger.LogInfo(fmt.Sprintf("Connected to database in %v", elapsed))
+
+	return &Database{Pool: pool}, nil
+}
+
+func (db *Database) GetPool() *pgxpool.Pool {
+	return db.Pool
+}
+
+func (db *Database) Close() {
+	if db.Pool != nil {
+		db.Pool.Close()
+		logger.LogInfo("Database connection closed")
+	}
 }
