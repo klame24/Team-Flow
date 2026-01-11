@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"team-flow/core/logger"
 	"team-flow/internal/auth/jwt"
+	"team-flow/internal/config"
 	"team-flow/internal/repositories"
 	"team-flow/internal/routes"
 	"team-flow/internal/services"
@@ -16,6 +18,14 @@ import (
 )
 
 func main() {
+	logger.InitLogger()
+
+	cfg, err := config.Load()
+	if err != nil {
+		logger.LogError(err)
+		os.Exit(1)
+	}
+
 	godotenv.Load("env.env")
 
 	ctx := context.Background()
